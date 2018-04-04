@@ -80,8 +80,8 @@ contract Lottery {
     
     modifier noEthSent(){
         if (msg.value>0) {
-          revert();
-      }
+            revert();
+        }
         _;
     }
     
@@ -121,7 +121,7 @@ contract Lottery {
     // subtracting the relevant amount the send call is executed. Note that if 
     // caller tries to withdraw more than his winnings it will be reverted.
     function withdraw(uint amount) public {
-        if (profits[msg.sender] <=0) revert();
+        if (profits[msg.sender] <= 0) revert();
         if (profits[msg.sender] >= amount) {
             profits[msg.sender] -= amount;
             if (!msg.sender.send(amount)) revert();
@@ -130,7 +130,7 @@ contract Lottery {
     
     function sendTheRemainingMoney(uint ticketPrice) private {
         if (msg.value > ticketPrice) {
-            if ( !msg.sender.send(msg.value - ticketPrice) ) revert();
+            if (!msg.sender.send(msg.value-ticketPrice))  revert();
         }
     }    
 
@@ -238,17 +238,17 @@ contract Lottery {
         // TODO:: same address multiple tickets
         hashes[msg.sender] = hashArray;
         // Add the caller to the participants
-        participants.push(buyer(msg.sender,ticketCoefficient));
+        participants.push(buyer(msg.sender, ticketCoefficient));
         collected_money += ticketPrice;
         // Send the excessive amount
         sendTheRemainingMoney(ticketPrice);
         // Check if it is time to switch to the reveal period
-        if (isEndOfSubmission()){
+        if (isEndOfSubmission()) {
             isSubmissionTime = false;
             roundStartBlockNumber = block.number + 1;
         }
     }
-    
+
     function getCollectedMoney() public view returns(uint){
         return collected_money;
     }
