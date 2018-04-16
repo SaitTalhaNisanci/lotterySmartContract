@@ -38,7 +38,7 @@ contract Lottery {
     random numbers that were submitted when buying a ticket. The hash will be
     verified in the contract.
     */
-    mapping(address=>bytes32[]) hashes;
+    mapping(address => mapping(uint=>bytes32[])) hashes;
     
     /* 
     Users prizes will be stored in this mapping so that they can withdraw their 
@@ -51,7 +51,7 @@ contract Lottery {
     the same address can buy more than one ticket, they will all be added to this
     array.
     */
-    buyer[] participants;
+    mapping(uint => buyer[]) participants;
     
     /*
     isSubmissionTime is used to check if it is submission or reveal time.
@@ -64,6 +64,12 @@ contract Lottery {
     */
     uint submissionStartBlockNumber;
     uint revealStartBlockNumber;
+
+    /*
+    submission round number and reveal round number are used to keep track of round numbers
+    */
+    uint submissionRoundNumber;
+    uint revealRoundNumber;
     
     int firstHash; // firstHash is the hash used to determine the first winner
     int secondHash; // secondHash is the hash used to determine the second winner
@@ -73,6 +79,8 @@ contract Lottery {
         isSubmissionTime = true; // We start with the submission period.
         submissionStartBlockNumber = block.number; // Let the current block be the startBlock.
         revealStartBlockNumber = submissionStartBlockNumber + roundPeriod;
+        submissionRoundNumber = 1;
+        revealRoundNumber = 1;
     }
     
     struct buyer {
@@ -174,8 +182,8 @@ contract Lottery {
         thirdHash ^= numbers[2];
     }
     
-    function findWinnersAndGivePrizes() private{
-        uint numberOfParticipants = participants.length;
+    function findWinnersAndGivePrizes(uint _stageNumber) private{
+        uint numberOfParticipants = participants[_stageNumber].length;
         
         // Take the mod with the numberOfParticipants so that it is guaranteed
         // that there will be a winner.
@@ -185,32 +193,32 @@ contract Lottery {
         uint thirdWinnerIndex = uint(thirdHash)%numberOfParticipants;
          
         // Calculate the prizes based on the position and ticket type.
-        uint firstPrize = collected_money/participants[firstWinnerIndex].ticketCoeffecient; 
-        uint secondPrize = collected_money/participants[secondWinnerIndex].ticketCoeffecient/secondWinnerCof;
-        uint thirdPrize = collected_money/participants[thirdWinnerIndex].ticketCoeffecient/thirdWinnerCof;
+        uint firstPrize = collected_money/participants[_stageNumber][firstWinnerIndex].ticketCoeffecient; 
+        uint secondPrize = collected_money/participants[_stageNumber][secondWinnerIndex].ticketCoeffecient/secondWinnerCof;
+        uint thirdPrize = collected_money/participants[_stageNumber][thirdWinnerIndex].ticketCoeffecient/thirdWinnerCof;
         
         // Store the profits so that later on winners can withdraw them.
-        profits[participants[firstWinnerIndex].buyersAddress] += firstPrize;
-        profits[participants[secondWinnerIndex].buyersAddress] += secondPrize ;
-        profits[participants[thirdWinnerIndex].buyersAddress] += thirdPrize ;
+        profits[participants[_stageNumber][firstWinnerIndex].buyersAddress] += firstPrize;
+        profits[participants[_stageNumber][secondWinnerIndex].buyersAddress] += secondPrize ;
+        profits[participants[_stageNumber][thirdWinnerIndex].buyersAddress] += thirdPrize ;
         // Update the collected_money.
         collected_money -= firstPrize + secondPrize + thirdPrize;
         // Delete the participants for the next round.
-        delete participants;
+        delete participants[_stageNumber];
          
     }
     
     function reveal(int[] numbers) public /*canReveal*/ noEthSent {
         // Check if it is time to find winners. If so switch to the submission period.
         if (isEndOfReveal()){
-            //isSubmissionTime = true;
             // Give the prizes.
-            findWinnersAndGivePrizes();
+            findWinnersAndGivePrizes(revealRoundNumber);
             revealStartBlockNumber = revealStartBlockNumber + roundPeriod;
+            revealRoundNumber = revealRoundNumber + 1;
         }
         
         // Check if it is reveal time or not
-        if (!canReveal()) revert();
+        require(canReveal());
 
         // Check if numbers are exactly 'numberOfRandoms'. Otherwise revert.
         if (!hasExactlyXElementsIntArray(numberOfRandoms,numbers)) revert();
@@ -220,9 +228,17 @@ contract Lottery {
             givenHashes[i]=(keccak256(numbers[i],msg.sender));
         }
         // Check if the submission and reveal hashes are matched. Otherwise revert.
-        if (!checkHashes(hashes[msg.sender],givenHashes)) revert();
+        if (!checkHashes(hashes[msg.sender][revealRoundNumber],givenHashes)) revert();
         // Update the hashes to determine the winners.
         updateRandomHashes(numbers);
+
+        // Check if it is time to find winners. If so switch to the submission period.
+        if (isEndOfReveal()){
+            // Give the prizes.
+            findWinnersAndGivePrizes(revealRoundNumber);
+            revealStartBlockNumber = revealStartBlockNumber + roundPeriod;
+            revealRoundNumber = revealRoundNumber + 1;
+        }
     }
     function hasExactlyXElements(uint x,bytes32[] hashArray) private pure returns(bool){
         return hashArray.length == x;
@@ -234,9 +250,10 @@ contract Lottery {
     function buyFullTicket(bytes32[] hashArray) public FullTicket /*canSubmit*/ payable returns (bool bought){
         if(isEndOfSubmission()){
             submissionStartBlockNumber = submissionStartBlockNumber + roundPeriod;
+            submissionRoundNumber = submissionRoundNumber + 1;
         }
 
-        if(!canSubmit()) revert();
+        require(canSubmit());
 
         buyTicket(fullTicketPrice,hashArray,2);
         return true;
@@ -245,9 +262,10 @@ contract Lottery {
     function buyHalfTicket(bytes32[] hashArray) public HalfTicket /*canSubmit*/ payable returns (bool bought){
         if(isEndOfSubmission()){
             submissionStartBlockNumber = submissionStartBlockNumber + roundPeriod;
+            submissionRoundNumber = submissionRoundNumber + 1;
         }
 
-        if(!canSubmit()) revert();
+        require(canSubmit());
 
         buyTicket(halfTicketPrice,hashArray,4);
         return true;
@@ -256,9 +274,10 @@ contract Lottery {
     function buyQuarterTicket(bytes32[] hashArray) public QuarterTicket /*canSubmit*/ payable returns (bool bought){
         if(isEndOfSubmission()){
             submissionStartBlockNumber = submissionStartBlockNumber + roundPeriod;
+            submissionRoundNumber = submissionRoundNumber + 1;
         }
 
-        if(!canSubmit()) revert();
+        require(canSubmit());
 
         buyTicket(quarterTicketPrice,hashArray,8);
         return true;
@@ -269,17 +288,18 @@ contract Lottery {
         if (!hasExactlyXElements(numberOfRandoms,hashArray)) revert();
         // Record the hashes of the sender to verify later
         // TODO:: same address multiple tickets
-        hashes[msg.sender] = hashArray;
+        hashes[msg.sender][submissionRoundNumber] = hashArray;
         // Add the caller to the participants
-        participants.push(buyer(msg.sender, ticketCoefficient));
+        participants[submissionRoundNumber].push(buyer(msg.sender, ticketCoefficient));
         collected_money += ticketPrice;
         // Send the excessive amount
         sendTheRemainingMoney(ticketPrice);
+        
         // Check if it is time to switch to the reveal period
-        /*if (isEndOfSubmission()) {
-            isSubmissionTime = false;
-            roundStartBlockNumber = block.number + 1;
-        }*/
+        if (isEndOfSubmission()) {
+            submissionStartBlockNumber = submissionStartBlockNumber + roundPeriod;
+            submissionRoundNumber = submissionRoundNumber + 1;
+        }
     }
 
     function getCollectedMoney() public view returns(uint){
