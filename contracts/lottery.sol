@@ -38,7 +38,7 @@ contract Lottery {
     random numbers that were submitted when buying a ticket. The hash will be
     verified in the contract.
     */
-    mapping(address => mapping(uint=>bytes32[])) hashes;
+    //mapping(address => mapping(uint=>bytes32[])) hashes;
     
     /* 
     Users prizes will be stored in this mapping so that they can withdraw their 
@@ -51,8 +51,9 @@ contract Lottery {
     the same address can buy more than one ticket, they will all be added to this
     array.
     */
-    mapping(uint => buyer[]) participants;
+    mapping(uint => Ticket[]) approvedTickets;
     
+    mapping(uint => mapping(address => Ticket[])) tickets;
     /*
     isSubmissionTime is used to check if it is submission or reveal time.
     */
@@ -83,9 +84,15 @@ contract Lottery {
         revealRoundNumber = 1;
     }
     
-    struct buyer {
+    /*struct buyer {
         address buyersAddress;
         uint8 ticketCoeffecient; // 2 -> Full 4 -> Half 8-> Quarter
+    }*/
+
+    struct Ticket{
+        address buyersAddress;
+        uint8 ticketCoeffecient; // 2 -> Full 4 -> Half 8-> Quarter
+        bytes32[] hashes;
     }
     
     modifier noEthSent(){
@@ -144,18 +151,32 @@ contract Lottery {
         }
     }    
 
-    function checkHashes(bytes32[] expectedHashes,bytes32[] givenHashes) private pure returns(bool){
-        for(uint i = 0; i< givenHashes.length ; i++){
-            bool found = false;
-            for(uint k = 0 ; k < expectedHashes.length;k++){
-                if (givenHashes[i]==expectedHashes[k]){
-                    found =true;
-                    break;
-                }
-            }
-            if (!found) return false;
+    function compareArrays(bytes32[] _arr1, bytes32[] _arr2) private pure returns(bool retval){
+        
+        uint len_arr1 = _arr1.length;
+        uint len_arr2 = _arr2.length;
+        
+        if(len_arr1 != len_arr2){
+            return(false);
         }
-        return true;
+        
+        for(uint i = 0; i< len_arr1; i++){
+            if(_arr1[i] != _arr2[i]){
+                return(false);
+            }
+        }
+        
+        return(true);
+    }
+
+    function checkHashes(Ticket[] ticketsOfParticipant,bytes32[] givenHashes) private pure returns(int){
+        int len = int(ticketsOfParticipant.length);
+        for(int i = 0; i< len ; i++){
+            if (compareArrays(ticketsOfParticipant[uint(i)].hashes, givenHashes)){
+                return i;
+            }
+        }
+        return -1;
     }
     
     function isEndOfReveal() private view returns(bool){
@@ -166,7 +187,6 @@ contract Lottery {
         return block.number >= submissionStartBlockNumber + roundPeriod;
     }
 
-    // Atakan
     function canSubmit() private view returns (bool) {
         return (block.number >= submissionStartBlockNumber) && (block.number < (submissionStartBlockNumber + roundPeriod));
     }
@@ -174,7 +194,16 @@ contract Lottery {
     function canReveal() private view returns (bool) {
         return (block.number >= revealStartBlockNumber) && (block.number < (revealStartBlockNumber + roundPeriod));
     }
-    // Atakan
+    
+    function removeTicket(uint _roundNumber, address _ticketOwner, int _index) private{
+        int len = int(tickets[_roundNumber][_ticketOwner].length);
+        if(_index >= len){
+            revert();
+        }else{
+            tickets[_roundNumber][_ticketOwner][uint(_index)] = tickets[_roundNumber][_ticketOwner][uint(len-1)];
+            delete tickets[_roundNumber][_ticketOwner][uint(len-1)];
+        }
+    }
     
     function updateRandomHashes(int[] numbers) private {
         firstHash ^= numbers[0];
@@ -182,8 +211,8 @@ contract Lottery {
         thirdHash ^= numbers[2];
     }
     
-    function findWinnersAndGivePrizes(uint _stageNumber) private{
-        uint numberOfParticipants = participants[_stageNumber].length;
+    function findWinnersAndGivePrizes(uint _roundNumber) private{
+        uint numberOfParticipants = approvedTickets[_roundNumber].length;
         
         // Take the mod with the numberOfParticipants so that it is guaranteed
         // that there will be a winner.
@@ -207,22 +236,24 @@ contract Lottery {
         }
          
         // Calculate the prizes based on the position and ticket type.
-        uint firstPrize = collected_money/participants[_stageNumber][firstWinnerIndex].ticketCoeffecient; 
-        uint secondPrize = collected_money/participants[_stageNumber][secondWinnerIndex].ticketCoeffecient/secondWinnerCof;
-        uint thirdPrize = collected_money/participants[_stageNumber][thirdWinnerIndex].ticketCoeffecient/thirdWinnerCof;
+        uint firstPrize = collected_money/approvedTickets[_roundNumber][firstWinnerIndex].ticketCoeffecient; 
+        uint secondPrize = collected_money/approvedTickets[_roundNumber][secondWinnerIndex].ticketCoeffecient/secondWinnerCof;
+        uint thirdPrize = collected_money/approvedTickets[_roundNumber][thirdWinnerIndex].ticketCoeffecient/thirdWinnerCof;
         
         // Store the profits so that later on winners can withdraw them.
-        profits[participants[_stageNumber][firstWinnerIndex].buyersAddress] += firstPrize;
-        profits[participants[_stageNumber][secondWinnerIndex].buyersAddress] += secondPrize ;
-        profits[participants[_stageNumber][thirdWinnerIndex].buyersAddress] += thirdPrize ;
+        profits[approvedTickets[_roundNumber][firstWinnerIndex].buyersAddress] += firstPrize;
+        profits[approvedTickets[_roundNumber][secondWinnerIndex].buyersAddress] += secondPrize ;
+        profits[approvedTickets[_roundNumber][thirdWinnerIndex].buyersAddress] += thirdPrize ;
+        
         // Update the collected_money.
         collected_money -= firstPrize + secondPrize + thirdPrize;
+        
         // Delete the participants for the next round.
-        delete participants[_stageNumber];
+        //delete participants[_stageNumber];
          
     }
     
-    function reveal(int[] numbers) public /*canReveal*/ noEthSent {
+    function reveal(int[] numbers) public noEthSent {
         // Check if it is time to find winners. If so switch to the submission period.
         if (isEndOfReveal()){
             // Give the prizes.
@@ -241,8 +272,17 @@ contract Lottery {
         for (uint i = 0 ; i < numbers.length;i++){
             givenHashes[i]=(keccak256(numbers[i],msg.sender));
         }
+        
         // Check if the submission and reveal hashes are matched. Otherwise revert.
-        if (!checkHashes(hashes[msg.sender][revealRoundNumber],givenHashes)) revert();
+        int index = checkHashes(tickets[revealRoundNumber][msg.sender],givenHashes);
+        if (index == -1) revert();
+        
+        // If submission and reveal hashes are matced, the ticket can join the lottery
+        approvedTickets[revealRoundNumber].push(Ticket(tickets[revealRoundNumber][msg.sender][uint(index)].buyersAddress, tickets[revealRoundNumber][msg.sender][uint(index)].ticketCoeffecient, tickets[revealRoundNumber][msg.sender][uint(index)].hashes));
+        
+        // Remove from candidate ticket list
+        removeTicket(revealRoundNumber, msg.sender, index);
+        
         // Update the hashes to determine the winners.
         updateRandomHashes(numbers);
 
@@ -301,10 +341,8 @@ contract Lottery {
         // Check if there are exactly 'numberOfRandoms' hashes. Otherwise revert.
         if (!hasExactlyXElements(numberOfRandoms,hashArray)) revert();
         // Record the hashes of the sender to verify later
-        // TODO:: same address multiple tickets
-        hashes[msg.sender][submissionRoundNumber] = hashArray;
         // Add the caller to the participants
-        participants[submissionRoundNumber].push(buyer(msg.sender, ticketCoefficient));
+        tickets[submissionRoundNumber][msg.sender].push(Ticket(msg.sender, ticketCoefficient, hashArray));
         collected_money += ticketPrice;
         // Send the excessive amount
         sendTheRemainingMoney(ticketPrice);
