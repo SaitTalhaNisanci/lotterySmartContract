@@ -16,7 +16,7 @@ contract Lottery {
     Number of blocks until the round ends.
     There are two rounds, submission and reveal.
     */
-    uint constant roundPeriod = 4;
+    uint constant roundPeriod = 20;
     /* 
     Second winner will get 1/secondWinnerCof of the relative price.
     */
@@ -59,10 +59,11 @@ contract Lottery {
     bool isSubmissionTime; 
     
     /*
-    roundStartBlockNumber is used to determine if it is time to switch between 
+    submissionStartBlockNumber is used to determine if it is time to switch between 
     submission and reveal periods.
     */
-    uint roundStartBlockNumber;
+    uint submissionStartBlockNumber;
+    uint revealStartBlockNumber;
     
     int firstHash; // firstHash is the hash used to determine the first winner
     int secondHash; // secondHash is the hash used to determine the second winner
@@ -70,7 +71,8 @@ contract Lottery {
     
     function Lottery () public {
         isSubmissionTime = true; // We start with the submission period.
-        roundStartBlockNumber = block.number; // Let the current block be the startBlock.
+        submissionStartBlockNumber = block.number; // Let the current block be the startBlock.
+        revealStartBlockNumber = submissionStartBlockNumber + roundPeriod;
     }
     
     struct buyer {
@@ -85,14 +87,14 @@ contract Lottery {
         _;
     }
     
-    modifier canSubmit(){
-        if (!isSubmissionTime) revert();
-        _;
-    }
-    modifier canReveal(){
-        if (isSubmissionTime) revert();
-        _;
-    }
+    //modifier canSubmit(){
+    //    if (!isSubmissionTime) revert();
+    //    _;
+    //}
+    //modifier canReveal(){
+    //    if (isSubmissionTime) revert();
+    //    _;
+    //}
     
     modifier FullTicket() {
         if (msg.value < fullTicketPrice) {
@@ -149,12 +151,22 @@ contract Lottery {
     }
     
     function isEndOfReveal() private view returns(bool){
-        return block.number >= roundStartBlockNumber + roundPeriod;
+        return block.number >= revealStartBlockNumber + roundPeriod;
     }
     
     function isEndOfSubmission() private view returns (bool){
-        return block.number >= roundStartBlockNumber + roundPeriod;
+        return block.number >= submissionStartBlockNumber + roundPeriod;
     }
+
+    // Atakan
+    function canSubmit() private view returns (bool) {
+        return (block.number >= submissionStartBlockNumber) && (block.number < (submissionStartBlockNumber + roundPeriod));
+    }
+
+    function canReveal() private view returns (bool) {
+        return (block.number >= revealStartBlockNumber) && (block.number < (revealStartBlockNumber + roundPeriod));
+    }
+    // Atakan
     
     function updateRandomHashes(int[] numbers) private {
         firstHash ^= numbers[0];
@@ -188,7 +200,18 @@ contract Lottery {
          
     }
     
-    function reveal(int[] numbers) public canReveal noEthSent {
+    function reveal(int[] numbers) public /*canReveal*/ noEthSent {
+        // Check if it is time to find winners. If so switch to the submission period.
+        if (isEndOfReveal()){
+            //isSubmissionTime = true;
+            // Give the prizes.
+            findWinnersAndGivePrizes();
+            revealStartBlockNumber = revealStartBlockNumber + roundPeriod;
+        }
+        
+        // Check if it is reveal time or not
+        if (!canReveal()) revert();
+
         // Check if numbers are exactly 'numberOfRandoms'. Otherwise revert.
         if (!hasExactlyXElementsIntArray(numberOfRandoms,numbers)) revert();
         bytes32[] memory givenHashes = new bytes32[](numberOfRandoms);
@@ -200,14 +223,6 @@ contract Lottery {
         if (!checkHashes(hashes[msg.sender],givenHashes)) revert();
         // Update the hashes to determine the winners.
         updateRandomHashes(numbers);
-        // Check if it is time to find winners. If so switch to the submission period.
-        if (isEndOfReveal()){
-            isSubmissionTime = true;
-            // Give the prizes.
-            findWinnersAndGivePrizes();
-            roundStartBlockNumber = block.number + 1;
-        }
-        
     }
     function hasExactlyXElements(uint x,bytes32[] hashArray) private pure returns(bool){
         return hashArray.length == x;
@@ -216,17 +231,35 @@ contract Lottery {
     function hasExactlyXElementsIntArray(uint x,int[] intArray) private pure returns(bool){
         return intArray.length == x;
     }
-    function buyFullTicket(bytes32[] hashArray) public FullTicket canSubmit payable returns (bool bought){
+    function buyFullTicket(bytes32[] hashArray) public FullTicket /*canSubmit*/ payable returns (bool bought){
+        if(isEndOfSubmission()){
+            submissionStartBlockNumber = submissionStartBlockNumber + roundPeriod;
+        }
+
+        if(!canSubmit()) revert();
+
         buyTicket(fullTicketPrice,hashArray,2);
         return true;
     }
     
-    function buyHalfTicket(bytes32[] hashArray) public HalfTicket canSubmit payable returns (bool bought){
+    function buyHalfTicket(bytes32[] hashArray) public HalfTicket /*canSubmit*/ payable returns (bool bought){
+        if(isEndOfSubmission()){
+            submissionStartBlockNumber = submissionStartBlockNumber + roundPeriod;
+        }
+
+        if(!canSubmit()) revert();
+
         buyTicket(halfTicketPrice,hashArray,4);
         return true;
     }
     
-    function buyQuarterTicket(bytes32[] hashArray) public QuarterTicket canSubmit payable returns (bool bought){
+    function buyQuarterTicket(bytes32[] hashArray) public QuarterTicket /*canSubmit*/ payable returns (bool bought){
+        if(isEndOfSubmission()){
+            submissionStartBlockNumber = submissionStartBlockNumber + roundPeriod;
+        }
+
+        if(!canSubmit()) revert();
+
         buyTicket(quarterTicketPrice,hashArray,8);
         return true;
     }
@@ -243,10 +276,10 @@ contract Lottery {
         // Send the excessive amount
         sendTheRemainingMoney(ticketPrice);
         // Check if it is time to switch to the reveal period
-        if (isEndOfSubmission()) {
+        /*if (isEndOfSubmission()) {
             isSubmissionTime = false;
             roundStartBlockNumber = block.number + 1;
-        }
+        }*/
     }
 
     function getCollectedMoney() public view returns(uint){
