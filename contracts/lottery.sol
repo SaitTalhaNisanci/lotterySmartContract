@@ -187,10 +187,24 @@ contract Lottery {
         
         // Take the mod with the numberOfParticipants so that it is guaranteed
         // that there will be a winner.
-        // TODO:: make sure winners are different indexes.
         uint firstWinnerIndex = uint(firstHash)%numberOfParticipants;
         uint secondWinnerIndex = uint(secondHash)%numberOfParticipants;
         uint thirdWinnerIndex = uint(thirdHash)%numberOfParticipants;
+
+        // Make sure winners are different indexes.
+        while((firstWinnerIndex == secondWinnerIndex)||(firstWinnerIndex == thirdWinnerIndex)||(secondWinnerIndex == thirdWinnerIndex)){
+            if(firstWinnerIndex == secondWinnerIndex){
+                firstWinnerIndex = (firstWinnerIndex + 1) % numberOfParticipants;
+            }
+
+            if(firstWinnerIndex == thirdWinnerIndex){
+                firstWinnerIndex = (firstWinnerIndex + 1) % numberOfParticipants;
+            }
+
+            if(secondWinnerIndex == thirdWinnerIndex){
+                secondWinnerIndex = (secondWinnerIndex + 1) % numberOfParticipants;
+            }
+        }
          
         // Calculate the prizes based on the position and ticket type.
         uint firstPrize = collected_money/participants[_stageNumber][firstWinnerIndex].ticketCoeffecient; 
