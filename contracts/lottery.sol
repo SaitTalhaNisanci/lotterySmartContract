@@ -211,9 +211,11 @@ contract Lottery {
         thirdHash ^= numbers[2];
     }
     
-    function findWinnersAndGivePrizes(uint _roundNumber) private{
+    function findWinnersAndGivePrizes(uint _roundNumber) private returns(bool){
         uint numberOfParticipants = approvedTickets[_roundNumber].length;
-        
+        if (numberOfParticipants < 3){
+            return false;
+        }
         // Take the mod with the numberOfParticipants so that it is guaranteed
         // that there will be a winner.
         uint firstWinnerIndex = uint(firstHash)%numberOfParticipants;
@@ -248,9 +250,7 @@ contract Lottery {
         // Update the collected_money.
         collected_money -= firstPrize + secondPrize + thirdPrize;
         
-        // Delete the participants for the next round.
-        //delete participants[_stageNumber];
-         
+        return true; 
     }
     
     function reveal(int[] numbers) public noEthSent {
@@ -367,5 +367,9 @@ contract Lottery {
     }
     function getHash(address x) public pure returns(bytes32){
         return keccak256(int(9),x);
+    }
+
+    function getProfit() public view returns(uint){
+        return profits[msg.sender];
     }
 }

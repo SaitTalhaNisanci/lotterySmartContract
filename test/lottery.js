@@ -165,6 +165,58 @@ contract('Lottery', function(accounts) {
       return meta.reveal([number, number, number], {from: accounts[0], value:0});
     }).then(function(tx){
       console.log(tx);
+      number = 9;
+      return meta.reveal([number, number, number]);
+    }).then(function(tx){
+      console.log(tx);
+      number
+    })
+  });
+
+  it("should buy a full ticket with sufficient amount for next round", function() {
+    return lottery.deployed().then(function(instance) {
+      meta = instance;
+      hash  =  keccak256(9, accounts[0]);
+      return meta.buyFullTicket([hash,hash,hash],{from: accounts[0],value:web3.toWei(8,"finney")});
+    }).then (function(tx){
+      console.log(tx);
+      assert.equal(tx.receipt.status,'0x01', "Error: should buy a full ticket with sufficient amount");
+    });
+  });
+
+  it("should increase profit of address: " + accounts[0], async function(){
+    let meta = await lottery.deployed();
+    var number = 9;
+    var numbers = [number, number, number];
+
+    for(let i=0; i<3;i++){
+      await meta.reveal(numbers);
+    }
+
+    await mineNBlocks(PERIOD);
+    let blockNumber = await meta.getBlockNumber.call();
+    console.log("[DEBUG]: block number = " + blockNumber.toNumber());
+    let collectedMoney = await meta.getCollectedMoney.call();
+    let prevProfitOfAccount0 = await meta.getProfit.call();
+    console.log("[DEBUG]: collected money = " + collectedMoney.toNumber());
+    console.log("[DEBUG]: balance of " + accounts[0] + ": " + prevProfitOfAccount0.toNumber());
+    await meta.reveal(numbers);
+    collectedMoney = await meta.getCollectedMoney.call();
+    let newProfitOfAccount0 = await meta.getProfit.call();
+    console.log("[DEBUG]: collectedmoney = " + collectedMoney.toNumber());
+    console.log("[DEBUG]: balance of " + accounts[0] + ": " + newProfitOfAccount0.toNumber());
+
+    assert.isTrue(prevProfitOfAccount0.toNumber() < newProfitOfAccount0.toNumber(), "Error: should increase profit of address: " + accounts[0])
+  });
+
+  it("should send 8 finney to address: " + accounts[0], function(){
+    return lottery.deployed().then(function(instance){
+      meta = instance;
+      console.log(web3.eth.getBalance(accounts[0]));
+      return meta.withdraw(web3.toWei(8,"finney"));
+    }).then(function(tx){
+      console.log(tx);
+      console.log(web3.eth.getBalance(accounts[0]));
     });
   });
 });
