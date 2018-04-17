@@ -1,0 +1,35 @@
+{
+  "name": "lotterysmartcontract",
+  "version": "1.0.0",
+  "description": "Decentralize Lottery",
+  "main": "truffle-config.js",
+  "directories": {
+    "test": "test"
+  },
+  "dependencies": {
+    "js-sha3": "^0.7.0",
+    "left-pad": "^1.3.0",
+    "should": "^13.2.1",
+    "web3-utils": "^1.0.0-beta.34"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "truffle test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SaitTalhaNisanci/lotterySmartContract.git"
+  },
+  "keywords": [
+    "decentralized",
+    "lottery",
+    "solidity",
+    "smartcontract"
+  ],
+  "author": "Atakan Guney, Sait Talha Nisanci",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/SaitTalhaNisanci/lotterySmartContract/issues"
+  },
+  "homepage": "https://github.com/SaitTalhaNisanci/lotterySmartContract#readme"
+}
