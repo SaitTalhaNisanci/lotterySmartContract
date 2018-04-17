@@ -205,18 +205,20 @@ contract('Lottery', function(accounts) {
     let newProfitOfAccount0 = await meta.getProfit.call();
     console.log("[DEBUG]: collectedmoney = " + collectedMoney.toNumber());
     console.log("[DEBUG]: balance of " + accounts[0] + ": " + newProfitOfAccount0.toNumber());
-
     assert.isTrue(prevProfitOfAccount0.toNumber() < newProfitOfAccount0.toNumber(), "Error: should increase profit of address: " + accounts[0])
   });
 
   it("should send 8 finney to address: " + accounts[0], function(){
     return lottery.deployed().then(function(instance){
       meta = instance;
-      console.log(web3.eth.getBalance(accounts[0]));
+      prevBalance = web3.eth.getBalance(accounts[0]);
+      console.log("[DEBUG]: previous balance of account " + accounts[0] + ": " + prevBalance);
       return meta.withdraw(web3.toWei(8,"finney"));
     }).then(function(tx){
       console.log(tx);
-      console.log(web3.eth.getBalance(accounts[0]));
+      let newBalance = web3.eth.getBalance(accounts[0]);
+      console.log("[DEBUG]: new balance of account " + accounts[0] + ": " + newBalance);
+      assert.isTrue(prevBalance < newBalance, "Error: should previous balance less than new balance of the account");
     });
   });
 });
