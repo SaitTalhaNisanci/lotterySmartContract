@@ -9,11 +9,14 @@ var should = require('should');
  */
 contract('Lottery', function(accounts) {
   const PERIOD = 20;
-
+  const submittedNumber = 9;
+  const submittedNumberFromAccount0 = 10;
+  const notSubmittedNumber = 3;
+  
   it("should buy a full ticket with sufficient amount", function() {
     return lottery.deployed().then(function(instance) {
       meta = instance;
-      hash  =  keccak256(9, accounts[0]);
+      hash  =  keccak256(submittedNumberFromAccount0, accounts[0]);
       return meta.buyFullTicket([hash,hash,hash],{from: accounts[0],value:web3.toWei(8,"finney")});
     }).then (function(tx){
       console.log(tx);
@@ -23,7 +26,7 @@ contract('Lottery', function(accounts) {
 
   it("should buy a full ticket with excessive amount", function() {
     return lottery.deployed().then(function(instance) {
-      hash  =  keccak256(9, accounts[0]);
+      hash  =  keccak256(submittedNumber, accounts[0]);
       return instance.buyFullTicket([hash,hash,hash],{from: accounts[0],value:web3.toWei(20,"finney")});
     }).then(function(tx){
       console.log(tx);
@@ -33,7 +36,7 @@ contract('Lottery', function(accounts) {
 
   it("should not buy a full ticket with insufficient amount", function() {
     return lottery.deployed().then(function(instance) {
-      hash  =  keccak256(9, accounts[0]);
+      hash  =  keccak256(submittedNumber, accounts[0]);
       return instance.buyFullTicket([hash,hash,hash],{from: accounts[0],value:web3.toWei(7,"finney")});
     }).then(assert.fail).catch(function(error){
       error_str = error.toString();
@@ -47,7 +50,7 @@ contract('Lottery', function(accounts) {
 
   it("should buy a half ticket with sufficient amount", function() {
     return lottery.deployed().then(function(instance) {
-      hash  =  keccak256(9, accounts[0]);
+      hash  =  keccak256(submittedNumber, accounts[0]);
       return instance.buyHalfTicket([hash,hash,hash],{from: accounts[0],value:web3.toWei(4,"finney")});
     }).then(function(tx) {
       console.log(tx);
@@ -57,7 +60,7 @@ contract('Lottery', function(accounts) {
 
   it("should not buy a half ticket with insufficient amount", function() {
     return lottery.deployed().then(function(instance) {
-      hash  =  keccak256(9, accounts[0]);
+      hash  =  keccak256(submittedNumber, accounts[0]);
       return instance.buyHalfTicket([hash,hash,hash],{from: accounts[0],value:web3.toWei(3,"finney")});
     }).then(assert.fail).catch(function(error){
       error_str = error.toString();
@@ -71,7 +74,7 @@ contract('Lottery', function(accounts) {
 
   it("should buy a quarter ticket with sufficient amount", function() {
     return lottery.deployed().then(function(instance) {
-      hash  =  keccak256(9, accounts[0]);
+      hash  =  keccak256(submittedNumber, accounts[0]);
       return instance.buyQuarterTicket([hash,hash,hash],{from: accounts[0],value:web3.toWei(2,"finney")});
     }).then(function(tx){
       console.log(tx);
@@ -81,7 +84,7 @@ contract('Lottery', function(accounts) {
 
   it("should not buy a quarter ticket with insufficient amount", function() {
     return lottery.deployed().then(function(instance) {
-      hash  =  keccak256(9, accounts[0]);
+      hash  =  keccak256(submittedNumber, accounts[0]);
       return instance.buyQuarterTicket([hash,hash,hash],{from: accounts[0],value:web3.toWei(1,"finney")});
     }).then(assert.fail).catch(function(error){
       error_str = error.toString();
@@ -95,7 +98,7 @@ contract('Lottery', function(accounts) {
 
   it("should buy a half ticket with excessive amount", function() {
     return lottery.deployed().then(function(instance) {
-      hash  =  keccak256(9, accounts[0]);
+      hash  =  keccak256(submittedNumber, accounts[0]);
       return instance.buyHalfTicket([hash,hash,hash],{from: accounts[0],value:web3.toWei(20,"finney")});
     }).then(function(tx) {
       console.log(tx);
@@ -105,7 +108,7 @@ contract('Lottery', function(accounts) {
 
   it("should buy a quarter ticket with excessive amount", function() {
     return lottery.deployed().then(function(instance) {
-      hash  =  keccak256(9, accounts[0]);
+      hash  =  keccak256(submittedNumber, accounts[0]);
       return instance.buyQuarterTicket([hash,hash,hash],{from: accounts[0],value:web3.toWei(20,"finney")});
     }).then(function(tx) {
       assert.equal(tx.receipt.status, '0x01', "Error: should buy a quarter ticket with excessive amount")
@@ -116,7 +119,7 @@ contract('Lottery', function(accounts) {
     return lottery.deployed().then(function(instance){
       meta = instance;
       console.log("[DEBUG]: current block number " + web3.eth.blockNumber);
-      number = 1;
+      number = keccak256(submittedNumber,accounts[0]);
       return meta.reveal([number, number, number]);
     }).then(assert.fail).catch(function(error){
       error_str = error.toString();
@@ -161,22 +164,58 @@ contract('Lottery', function(accounts) {
       return meta.getBlockNumber.call();
     }).then(function(blockNumber){
       console.log("[DEBUG]: block number = " + blockNumber.toNumber());
-      number = 9;
+      number = submittedNumber;
       return meta.reveal([number, number, number], {from: accounts[0], value:0});
     }).then(function(tx){
-      console.log(tx);
-      number = 9;
-      return meta.reveal([number, number, number]);
-    }).then(function(tx){
-      console.log(tx);
-      number
+
+    }).catch(function(err) {
+      console.log(err);
+      assert.fail("should reveal a number passed before");
     })
   });
+
+    it("should not reveal the number passed before from a different account", function(){
+        return lottery.deployed().then(function(instance){
+            meta = instance;
+            return meta.getBlockNumber.call();
+        }).then(function(blockNumber){
+            console.log("[DEBUG]: block number = " + blockNumber.toNumber());
+            number = submittedNumberFromAccount0;
+            return meta.reveal([number, number, number], {from: accounts[1], value:0});
+        }).then(assert.fail).catch(function(error) {
+            error_str = error.toString();
+            if (error_str.indexOf("revert") != -1) {
+                console.log("Passed: should not reveal because it is not reveal time");
+            } else {
+                console.log(error);
+                assert.fail("This function should revert");
+            }
+        });
+    });
+
+    it("should not reveal a number not passed before", function(){
+        return lottery.deployed().then(function(instance){
+            meta = instance;
+            return meta.getBlockNumber.call();
+        }).then(function(blockNumber){
+            console.log("[DEBUG]: block number = " + blockNumber.toNumber());
+            number = notSubmittedNumber;
+            return meta.reveal([number, number, number], {from: accounts[0], value:0});
+        }).then(assert.fail).catch(function(error) {
+            error_str = error.toString();
+            if (error_str.indexOf("revert") != -1) {
+                console.log("Passed: should not reveal because it is not reveal time");
+            } else {
+                console.log(error);
+                assert.fail("This function should revert since not submitted number is revealed");
+            }
+        });
+    });
 
   it("should buy a full ticket with sufficient amount for next round", function() {
     return lottery.deployed().then(function(instance) {
       meta = instance;
-      hash  =  keccak256(9, accounts[0]);
+      hash  =  keccak256(submittedNumber, accounts[0]);
       return meta.buyFullTicket([hash,hash,hash],{from: accounts[0],value:web3.toWei(8,"finney")});
     }).then (function(tx){
       console.log(tx);
@@ -186,7 +225,7 @@ contract('Lottery', function(accounts) {
 
   it("should increase profit of address: " + accounts[0], async function(){
     let meta = await lottery.deployed();
-    var number = 9;
+    var number = submittedNumber;
     var numbers = [number, number, number];
 
     for(let i=0; i<3;i++){
