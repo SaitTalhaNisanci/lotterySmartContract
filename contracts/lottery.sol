@@ -259,7 +259,7 @@ contract Lottery {
         int index = checkHashes(tickets[revealRoundNumber][msg.sender],givenHashes);
         if (index == -1) revert();
         
-        // If submission and reveal hashes are matced, the ticket can join the lottery
+        // If submission and reveal hashes are matched, the ticket can join the lottery
         approvedTickets[revealRoundNumber].push(Ticket(tickets[revealRoundNumber][msg.sender][uint(index)].buyersAddress, tickets[revealRoundNumber][msg.sender][uint(index)].ticketCoeffecient, tickets[revealRoundNumber][msg.sender][uint(index)].hashes));
         
         // Remove from candidate ticket list
@@ -279,6 +279,7 @@ contract Lottery {
     function buyFullTicket(bytes32[] hashArray) public FullTicket /*canSubmit*/ payable returns (bool bought){
         if(isEndOfSubmission()){
             collected_money_current += collected_money_next;
+            collected_money_next = 0;
             submissionStartBlockNumber = submissionStartBlockNumber + roundPeriod;
             submissionRoundNumber = submissionRoundNumber + 1;
         }
@@ -292,6 +293,7 @@ contract Lottery {
     function buyHalfTicket(bytes32[] hashArray) public HalfTicket /*canSubmit*/ payable returns (bool bought){
         if(isEndOfSubmission()){
             collected_money_current += collected_money_next;
+            collected_money_next = 0;
             submissionStartBlockNumber = submissionStartBlockNumber + roundPeriod;
             submissionRoundNumber = submissionRoundNumber + 1;
         }
@@ -305,6 +307,7 @@ contract Lottery {
     function buyQuarterTicket(bytes32[] hashArray) public QuarterTicket /*canSubmit*/ payable returns (bool bought){
         if(isEndOfSubmission()){
             collected_money_current += collected_money_next;
+            collected_money_next = 0;
             submissionStartBlockNumber = submissionStartBlockNumber + roundPeriod;
             submissionRoundNumber = submissionRoundNumber + 1;
         }
