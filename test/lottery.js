@@ -147,16 +147,6 @@ contract('Lottery', function(accounts) {
     }
   };
 
-  /*it("should increase the block number", function(){
-    return lottery.deployed().then(function(instance){
-      meta = instance;
-      mineNBlocks(PERIOD);
-      return meta.getBlockNumber.call();
-    }).then(function(blockNumber){
-      console.log("[DEBUG]: block number = " + blockNumber.toNumber());
-    });
-  });*/
-
   it("should reveal the number passed before", function(){
     return lottery.deployed().then(function(instance){
       meta = instance;

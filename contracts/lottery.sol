@@ -63,6 +63,11 @@ contract Lottery {
     uint revealStartBlockNumber;
 
     /*
+    initialBlockNumber is used to keep block number
+    */
+    uint initialBlockNumber;
+
+    /*
     submission round number and reveal round number are used to keep track of round numbers
     */
     uint submissionRoundNumber;
@@ -74,6 +79,7 @@ contract Lottery {
     
     function Lottery () public {
         isSubmissionTime = true; // We start with the submission period.
+        initialBlockNumber = block.number; // Let the current block be the initial block
         submissionStartBlockNumber = block.number; // Let the current block be the startBlock.
         revealStartBlockNumber = submissionStartBlockNumber + roundPeriod;
         submissionRoundNumber = 1;
@@ -347,5 +353,9 @@ contract Lottery {
 
     function getProfit() public view returns(uint){
         return profits[msg.sender];
+    }
+
+    function getInitialBlockNumber() public view returns(uint){
+        return initialBlockNumber;
     }
 }
