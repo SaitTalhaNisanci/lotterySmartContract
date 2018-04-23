@@ -16,7 +16,7 @@ contract Lottery {
     Number of blocks until the round ends.
     There are two rounds, submission and reveal.
     */
-    uint constant roundPeriod = 20.000;
+    uint constant roundPeriod = 20000;
     /* 
     Second winner will get 1/secondWinnerCof of the relative price.
     */
